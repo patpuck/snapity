@@ -1,3 +1,5 @@
+someone pls think of a better name
+
 a weird replacement for smartsnap -- not in a condition to be put on the workshop yet
 
 wraps grids and guidelines around faces of **physical mesh convexes** as opposed to bounding boxes
