@@ -19,46 +19,158 @@ local ISTOOLGUN = false
 local CANLOCK = false
 local CELLWIDTH
 
+local convars = {}
+
+local colordefs = {
+    { "Grid",                       Color(255,255,255,255) },
+    { "Grid Outline",               Color(255,255,255,255) },
+    { "Focus Convex",               Color(255,255,255,255) },
+    { "Mesh (Other Convexes)",      Color(100,100,255,255) },
+    { "Full AABB",                  Color(255,  0,  0,150) },
+    { "Physical AABB",              Color(255,150,150, 50) },
+    { "OBB",                        Color(  0,  0,255,255) },
+    { "Mass Center Indicator",      Color(100,100,255,150) },
+    { "No-Mass Center Indicator",   Color(255,100,100,100) },
+    { "Centroid Indicator",         Color(  0,  0,255,120) },
+    { "Selection Animation Ring",   Color(255,255,255,255) },
+}
+
 local condefs = {
     enable                 = true,
-    drawfaceindeces        = false,
-    drawhitnormals         = false,
-    drawfaces              = true,
-    drawfacesignorez       = true,
-    drawiconboneindex      = true,
-    drawiconmasscenter     = false,
-    drawpseudonormals      = false,
-    drawvertexindeces      = false,
-    drawfullconvex         = false,
-    faceculling            = true,
-    facesmoothing          = 0.9,
-    dropshadowlength       = 3*DIST_EPSILON,
-    dropshadowopacity      = 0.8,
+    enablegrid             = true,
+    drawhitnormal          = false,
+    drawsnaparrow          = true,
     lineopacity            = 0.75,
-    lineignorez            = false,
-    masscenterproj         = false,
-    handlepickup           = true,
     anyweapon              = false,
     toolgunuseonly         = true,
     drawworldspaceaabb     = true,
-    fponlywhenlockable     = true,
+    drawworldspaceobb      = false,
     fpsforgridyield        = 3000,
-    drawgridwithouttoolgun = false,
-    drawlineshadows        = true,
+    drawlineshadows        = false,
     cellwidth              = 2,
     propaccomodations      = true,
     zoomscroll             = true,
     minzoom                = 1,
     maxzoom                = 0,
-    deltazoom              = 1
+    snapanimation          = true,
+    snapsound              = true,
+    snapsoundprivolume     = 20,
+    snapsoundpripitch      = 50,
+    snapsoundsecvolume     = 50,
+    snapsoundsecpitch      = 30,
+    snapanimationrumble    = false,
+    indicatemcproj         = true,
+    indicatecentroid       = true,
+    indicateevenwhenorigin = false,
+    centroidwhenoutermc    = false,
+    gridorigin             = "mcPos",   
+    backfaceculling        = true,
+    backfaceopacity        = 0.1,
+    backfacecullnonfconvex = true,
+    hitclientsideobjects   = false,
+    highlightconvexes      = false,
+    dwsobb_anyweapon       = false,
+    colorpickerpalette     = colordefs[1][1],
 }
 
+local lobodict = {}
+
+local function lobotostr(str)
+    return string.lower(str:gsub("%s","")):gsub("[^%w]", "")
+end
+
+for k, v in pairs(colordefs) do
+    print("SET ",v[1], "TO",lobotostr(v[1]))
+    lobodict[v[1]] = lobotostr(v[1])
+end
+
+local function palettecmds(palette)
+
+    return {
+        r = "palette_"..palette.."_r",
+        g = "palette_"..palette.."_g",
+        b = "palette_"..palette.."_b",
+        a = "palette_"..palette.."_a"
+    }
+
+end
+
+for k, tab in pairs(colordefs) do
+
+    for primary, val in pairs(tab[2]) do
+
+        condefs["palette_"..lobodict[tab[1]].."_"..primary] = val
+
+    end
+
+end
+
+
+local condefs2 = {}
+for k, v in pairs(condefs) do
+    condefs2[PS_..k] = v
+end
+
+
+local function palette(palette)
+
+    palette = palettecmds( lobotostr(palette) )
+    -- PrintTable(palette)
+    -- print(palette.r, convars[ palette.r ])
+
+    return Color( 
+        convars[ palette.r ]:GetInt(),
+        convars[ palette.g ]:GetInt(),
+        convars[ palette.b ]:GetInt(),
+        convars[ palette.a ]:GetInt()
+    )
+    
+end
+
+local COL, PAL = {}, {}
+
+hook.Add("Think", PS_.."handlecolors", function()
+
+    for k, tab in pairs(colordefs) do
+
+        local palettename = lobodict[tab[1]]
+
+        COL[palettename] = palette(palettename)
+
+        PAL[palettename] = function()
+            local c = COL[palettename]
+            return c.r, c.g, c.b, c.a
+        end
+
+    end
+
+end)
+
+-- drawfaceindeces        = false,
+-- drawfaces              = true,
+-- drawfacesignorez       = true,
+-- drawiconboneindex      = true,
+-- drawiconmasscenter     = false,
+-- drawpseudonormals      = false,
+-- drawvertexindeces      = false,
+-- drawfullconvex         = false,
+-- faceculling            = true,
+-- facesmoothing          = 0.9,
+-- dropshadowlength       = 3*DIST_EPSILON,
+-- dropshadowopacity      = 0.8,
+-- lineignorez            = false,
+-- masscenterproj         = false,
+-- handlepickup           = true,
+-- drawgridwithouttoolgun = false,
+-- deltazoom              = 1,
+
 local focalicons = {
-    edge            = {default = "cog",             selected = "add"},
-    masscenteroff   = {default = "lorry_flatbed",   selected = "lorry_delete"},
-    masscenter      = {default = "lorry",           selected = "lorry_add"},
-    tick            = {default = "bullet_star",     selected = "bullet_add"},
-    rayend          = {default = "disconnect",     selected = "connect"}
+    edge            = {default = "vector",          selected = "vector_add"            },
+    masscenteroff   = {default = "lorry_flatbed",   selected = "lorry_delete"   },
+    masscenter      = {default = "lorry",           selected = "lorry_add"      },
+    tick            = {default = "bullet_star",     selected = "bullet_add"     },
+    rayend          = {default = "disconnect",      selected = "connect"        },
+    centroid        = {default = "star",            selected = "add"            }
 }
 
 local propaccomodations = {
@@ -67,8 +179,6 @@ local propaccomodations = {
 }
 
 -- print(focalicons.edge.selected)
-
-local convars = {}
 
 for key, value in pairs(condefs) do
 
@@ -120,15 +230,232 @@ local function cNum(cvarsuffix)
     return GetConVar(PS_..cvarsuffix):GetFloat()
 end
 
+local panelobjs = {}
+
 hook.Remove( "PopulateToolMenu", "CustomMenuSettings")
 hook.Add( "PopulateToolMenu", PS_.."customMenu", function()
     spawnmenu.AddToolMenuOption("Options", "Player", PS_.."settings", PS, "", "", function(panel)
 
-        panel:Help("Creates a helper snap-grid over the physical mesh of the target entity.")
+        panel:Help("Draws a snap-grid over the physical mesh of entities")
 
-        panel:ToolPresets( PS, condefs )
+        panel:ToolPresets( PS, condefs2 )
 
-        panel:CheckBox( "Enable", PS_.."enable" )
+        local objprev
+        local cp = {}
+
+        local function quickbox(cmd, title, desc)
+            local gup
+            if cmd then gup = panel:CheckBox( title or cmd, PS_..cmd ) end
+            if desc then panel:ControlHelp(desc) end
+            panelobjs[cmd] = gup
+            gup.dependents = {}
+            gup.dependentsinv = {}
+            objprev = gup
+            local Dl, Du, Dr, Db = gup:GetDockMargin()
+            function gup:OnChange(bVal)
+                for k, v in pairs(gup.dependents) do
+                    v:DockMargin( Dl + 24 , Du , Dr, Db )
+                    v:SetEnabled(bVal)
+                end
+                for k, v in pairs(gup.dependentsinv) do
+                    v:DockMargin( Dl + 24 , Du , Dr, Db )
+                    v:SetEnabled(!bVal)
+                end
+            end
+            return gup
+        end
+
+        local function quickheader(text)
+            local gup = panel:Help("— "..text.." —————————————")
+            local Dl, Du, Dr, Db = gup:GetDockMargin()
+            gup:DockMargin( Dl - 8 , Du + 8 , Dr + 0, Db -2 )
+        end
+
+        local function puckheader(text)
+
+            local col = Color(0, 0, 0)
+
+            local row = vgui.Create("DPanel", panel)
+            row:SetPaintBackground(false)
+            row:SetTall(18)
+            -- row:DockPadding(0, 0, 16, 0)
+
+            local l = vgui.Create("DLabel", row)
+            l:SetText("—— "..text)
+            l:SetTextColor(col)
+            l:SizeToContentsX()
+            l:Dock(LEFT)
+
+            local xr, yr = row:GetSize()
+            local xl, yl =   l:GetSize() 
+
+            -- print(l:GetSize(),"ADSFJNDSKJFNDSJKFDS",row:GetSisze(), math.floor( (xr-xl)   ) )
+
+            local r = vgui.Create("DLabel", row)
+            -- r:SetText(string.rep("—", math.floor( (xr-xl)/6 )))
+            r:SetContentAlignment(6)
+            r:SetTextColor(col)
+            r:SizeToContentsX()
+            -- r:Dock(RIGHT)
+            r:Dock(FILL) 
+
+            local lastCount = -1
+            function row:PerformLayout(w, h)
+                self:SizeToChildren(false, false)
+                DPanel.PerformLayout(self, w, h)
+                surface.SetFont(r:GetFont())
+                local wid = surface.GetTextSize("—")
+                local count = math.max(math.floor((r:GetWide() - 4) / wid), 0)
+                if count ~= lastCount then 
+                    lastCount = count
+                    r:SetText(string.rep("—", count))
+                end
+                -- timer.Simple(3,  function() r:Dock(RIGHT) end )
+            end
+
+            panel:AddItem(row)
+
+        end
+
+        local function quickslider(cmd, title, min, max, dec, desc)
+            -- min, max, dec = min or 0, max or 1, dec or 1
+            min = min or 0
+            max = max or 1
+            dec = dec or 1
+            -- print("DEC!!!!!:",dec)
+            dec = dec or 1
+            -- print("DEC!!!!!222:",dec)
+            local gup = panel:NumSlider( title  , PS_..cmd, min, max, dec)
+            local Dl, Du, Dr, Db = gup:GetDockMargin()
+            gup:DockMargin( Dl + 24 , Du - 8 , Dr - 0, Db + 0 )
+
+            if desc then panel:ControlHelp(desc) end
+            panelobjs[cmd] = gup
+            return gup
+        end
+
+        local function quickcombo(cmd, title, array, desc)
+            gup, text = panel:ComboBox( title, PS_..cmd)
+            gup:SetSortItems( false )
+            local Dl, Du, Dr, Db = gup:GetDockMargin()
+            text:DockMargin( Dl + 24 , Du , Dr , Db )
+            for _, v in pairs(array) do gup:AddChoice( v[1], v[2] ) end
+            if desc then panel:ControlHelp(desc) end
+            panelobjs[cmd] = gup
+            return gup
+        end
+
+        -- panel:CheckBox( "Enable", PS_.."enable" )
+        quickbox("enable", "Enable")
+
+        puckheader("Conditionals:")
+        quickbox("enablegrid",              "Enable grid")
+        quickbox("anyweapon",               "View mesh with any weapon")
+        quickbox("toolgunuseonly",          "Restrict grid to toolgun only")
+
+        -- quickheader("Styling:")
+        puckheader("Styling:")
+        quickbox("drawlineshadows",         "Line shadows")
+        quickbox("drawworldspaceobb",       "Bounding box corners")
+        table.insert(
+            objprev.dependents, 
+            quickbox("dwsobb_anyweapon",    "With any weapon")
+        )
+        quickbox("drawworldspaceaabb",      "Axis aligned bounding boxes")
+        quickbox("drawsnaparrow",           "Snap arrow")
+        quickbox("highlightconvexes",       "Highlight convex even without grid", "For circumstances where the mesh is visible but the grid is not to be drawn.")
+        quickbox("indicatemcproj",          "Indicate mass center", "Show the mass center projection on the grid even when it's not focused")
+        quickbox("indicatecentroid",        "Indicate centroid",    "Show the current polygon's centroid even when it's not focused")
+        local org = quickcombo("gridorigin", "Grid Origin", { { "Mass center projection",  "mcPos" } , { "Grid's polygonal centroid",  "centroid" } })
+        local Dl, Du, Dr, Db = org:GetDockMargin()
+        local cwomc = quickbox("centroidwhenoutermc",     "Switch grid origin to centroid when necessary", "For when the mass center's projection falls outside the grid")
+        function org:OnSelect(ind, val, data)
+            local ga = data == "mcPos"
+            -- print("VAL:",data,ga)
+            cwomc:SetEnabled(ga)
+        end
+        cwomc:DockMargin(Dl+24, Du, Dr, Db)
+        
+        -- table.insert(
+        --     objprev.dependents, 
+        --     quickbox("centroidwhenoutermc",     "Switch grid origin to centroid when necessary", "For when the mass center's projection falls outside the grid")
+        -- )
+        -- gridorigincombo:SetValue( cStr("gridorigin") )
+        local cul = quickbox("backfaceculling",         "Backface Culling",     "Do no computations for faces you cannot see")
+        
+        -- sl1:SetEnabled(false)
+        -- local sl = {quickslider("backfaceopacity", "Backface opacity", 0, 1, 1)}
+        table.insert(
+            cul.dependentsinv, 
+            quickbox("backfacecullnonfconvex", "Backface culling for non-focus convexes")
+        )
+        table.insert(
+            cul.dependentsinv, 
+            quickslider("backfaceopacity", "Backface opacity", 0.2)
+        )
+        -- function cb()
+        -- panel:NumSlider( "Backface opacity", PS_.."backfaceopacity", 0, 1, 1)
+
+
+        puckheader("Colors:")
+        local colorpickcomboarray = {}
+        local c = 1
+        for k, v in pairs(colordefs) do
+            colorpickcomboarray[c] = { v[1], v[1]:gsub("%s","") }
+            c = c + 1
+        end
+        local colorpickpicker = quickcombo("colorpickerpalette", "Edit palette", colorpickcomboarray )
+        local colorpick = panel:ColorPicker(nil, cp.r, cp.g, cp.b, cp.a)
+        function colorpickpicker:OnSelect( ind, val, data )
+            local pal = palettecmds( lobodict[val] )
+            -- print(val, lobodict[val], val == lobodict[val], pal.r, pal.g, pal.b, pal.a, "AAAAAAAA")
+            colorpick:SetConVarR( PS_..pal.r )
+            colorpick:SetConVarG( PS_..pal.g )
+            colorpick:SetConVarB( PS_..pal.b )
+            colorpick:SetConVarA( PS_..pal.a )
+            -- colorpick = puckheader("mama :<")
+        end
+        local cur = cStr("colorpickerpalette")
+        for i = 1, #colorpickcomboarray do
+            if colorpickpicker:GetOptionData(i) == cur then
+                colorpickpicker:ChooseOptionID(i)
+                break
+            end
+        end
+        -- colorpickpicker:OnSelect( nil, cStr("colorpickerpalette") )
+
+
+        puckheader("Zest:")
+        quickbox("snapanimation",           "Animation")
+        table.insert(
+            objprev.dependents, 
+            quickbox("snapanimationrumble",     "Rumble")
+        )
+        local sndbox = quickbox("snapsound",               "Sound")
+        table.insert( sndbox.dependents, quickslider("snapsoundprivolume",   "Primary Volume",   0, 100, 1) )
+        table.insert( sndbox.dependents, quickslider("snapsoundpripitch",    "Primary Pitch",    0, 255, 1) )
+        table.insert( sndbox.dependents, quickslider("snapsoundsecvolume",   "Secondary Volume", 0, 100, 1) )
+        table.insert( sndbox.dependents, quickslider("snapsoundsecpitch",    "Secondary Volume", 0, 255, 1) )
+        -- quickslider("snapsoundprivolume",   "Primary Volume",   0, 100, 1)
+        -- quickslider("snapsoundpripitch",    "Primary Pitch",    0, 255, 1)
+        -- quickslider("snapsoundsecvolume",   "Secondary Volume", 0, 100, 1)
+        -- quickslider("snapsoundsecpitch",    "Secondary Volume", 0, 255, 1)
+
+        puckheader("Capabilities:")
+        quickbox("hitclientsideobjects",    "Hit clientside objects", "This includes gibs, debris, corpses, etc.")
+
+        puckheader("Zooming:")
+        local zoombox = quickbox("zoomscroll",              "Enable zooming")
+        -- panel:NumSlider( "Min zoom", PS_.."minzoom", 1, 16, 1)
+        -- panel:NumSlider( "Max zoom", PS_.."maxzoom", 0, 16, 1)
+        table.insert( zoombox.dependents, quickslider("minzoom","Min Zoom", 1, 16, 1) )
+        table.insert( zoombox.dependents, quickslider("maxzoom","Max Zoom", 0, 16, 1) )
+        -- quickslider("minzoom","Min Zoom", 1, 16, 1)
+        -- quickslider("maxzoom","Max Zoom", 0, 16, 1)
+        
+        puckheader("Debug:")
+        quickbox("drawhitnormal",           "Hitnormal")
+        quickslider("fpsforgridyield",      "FPS yield", 0, 3000, 0, "Applies only to grid building & (soon) object caching, not rendering" )
 
     end)
 end)
@@ -425,18 +752,25 @@ local function initialstuff()
 
         if fp == nil then return end
 
-        local ty = fp.type
-        local pitch = 50
-        local sou = sndgrabhard
-        if ty == "masscenter" or ty == "centroid" then
-            pitch = 30
-            sou = sndgrabsoft
-        end
-
         FocusEntity.Locked = true
         FocusEntity.LockedTimestamp = CurTime()
+
+        if !cBool("snapsound") then return end
+
+        local sec = ty == "masscenter" or ty == "centroid"
+
+        local ty = fp.type
+
+        local vol   = cNum("snapsoundprivolume")/100
+        local pitch = cNum("snapsoundpripitch")
+        local sou   = sndgrabhard
+        if ty == "masscenter" or ty == "centroid" then
+            vol   = cNum("snapsoundsecvolume")/100
+            pitch = cNum("snapsoundsecpitch")
+            sou   = sndgrabsoft
+        end
         sou:Stop()
-        sou:PlayEx(1, pitch)
+        sou:PlayEx(vol, pitch)
         -- sou:ChangePitch(0, 0.3)
 
     end
@@ -516,11 +850,12 @@ local function initialstuff()
 
         if !ENABLED then return end
         if !FocusEntity.Locked then return end
+        if !cBool("zoomscroll") then return end
 
         local wheel = cmd:GetMouseWheel()
         if wheel ~= 0 then
 
-            local dz = cNum("deltazoom")
+            local dz = cNum("minzoom")
 
             local dw = wheel * dz
 
@@ -974,6 +1309,16 @@ local function WindPolygon3D(TRIS, physicsbone, convex)
 
     end
 
+    local uppity = T1.detN:Dot(vector_up)
+
+    if math.abs(uppity) > 1-1e-5 then -- make it straight up for faces that are almooost straight up
+        if uppity > 0 then
+            T1.matL:SetAngles( Angle(-90,0,0) )
+        else
+            T1.matL:SetAngles( Angle(90,0,0) )
+        end
+    end
+
     -- PrintTable( PolyProjection(T1.matL, reorder) )
     C.polygons[ keyForNorm( T1.detN ) ] = {
         matL        = T1.matL,
@@ -1039,6 +1384,7 @@ function FocusEntity.RefreshMassCenter(poly, mc)
     poly.mcDisp = mcdisp
     poly.mcPos  = mcProj
     poly.mcDist = mcdist
+    poly.mcct   = (mcProj - poly.centroid):LengthSqr() < 1e-8
 
 end
 
@@ -1256,11 +1602,12 @@ function FocusEntity.RefreshFocalPoints()
     end
 
     local mc = fpoly.mcPos
+    local ct = fpoly.centroid
 
     -- local fuckpos = Vector(24,12,12)
     -- fp[ keyForPos(fuckpos) ] = {pos = fuckpos, type = "masscenter"}
 
-    if mc then
+    if fpoly.mcct or ( mc and ( cBool("indicatemcproj") or cStr("gridorigin") == "mcPos" ) ) then
 
         if fpoly.mcWithin then
 
@@ -1271,6 +1618,14 @@ function FocusEntity.RefreshFocalPoints()
             fp[ keyForPos(fpoly.mcDisp) ] = {pos = fpoly.mcDisp, type = "masscenteroff"}
 
         end
+
+    end
+
+    if !fpoly.mcct and ( cBool("indicatecentroid") or cStr("gridorigin") == "centroid" ) then
+
+        local ct = fpoly.centroid
+
+        fp[ keyForPos(ct) ] = {pos = ct, type = "centroid"}
 
     end
 
@@ -1392,6 +1747,7 @@ hook.Add("Think", PS_.."Run", function()
 
     ISLOCKABLE = 
         ( IsValid(FocusEntity.Entity) ) and
+        ( cBool("enablegrid") ) and
         ( FocusEntity.FocusPolygon != nil ) and
         ( ENABLED ) and
         ( ( cBool("toolgunuseonly") and ISTOOLGUN ) or !cBool("toolgunuseonly") )
@@ -1691,105 +2047,105 @@ local function puckline2d(x1,y1,x2,y2)
 
 end
 
-local function drawFace(polygon)
+-- local function drawFace(polygon)
 
-    if type(polygon) != "table" then return end
+--     if type(polygon) != "table" then return end
 
-    local pb = polygon.physicsbone
-    polygon.matW = FocusEntity.WorldMatrices[pb] * polygon.matL
+--     local pb = polygon.physicsbone
+--     polygon.matW = FocusEntity.WorldMatrices[pb] * polygon.matL
 
-    local dot0 = (EyePos() - polygon.matW:GetTranslation()):GetNormalized():Dot(polygon.matW:GetForward())
+--     local dot0 = (EyePos() - polygon.matW:GetTranslation()):GetNormalized():Dot(polygon.matW:GetForward())
 
-    local fp = FocusEntity.FocusPolygon
+--     local fp = FocusEntity.FocusPolygon
 
-    local dot01 = 1
+--     local dot01 = 1
 
-    if fp.matW then
+--     if fp.matW then
 
-        local lr = cNum("facesmoothing")
+--         local lr = cNum("facesmoothing")
 
-        dot01 = math.Clamp( ( fp.matW:GetForward():Dot(polygon.matW:GetForward()) - lr )*(1/(1-lr)), 0, 1 )
-        -- print("adjfnsdk")
+--         dot01 = math.Clamp( ( fp.matW:GetForward():Dot(polygon.matW:GetForward()) - lr )*(1/(1-lr)), 0, 1 )
+--         -- print("adjfnsdk")
 
-    end
+--     end
 
-    if cBool("faceculling") and dot0 <= 0 then return end
+--     if cBool("faceculling") and dot0 <= 0 then return end
 
-    local cur = polygon == fp
-    local curBone = pb == FocusEntity.tr.PhysicsBone + 1
-    local curC = polygon.convex == FocusEntity.FocusConvex
+--     local cur = polygon == fp
+--     local curBone = pb == FocusEntity.tr.PhysicsBone + 1
+--     local curC = polygon.convex == FocusEntity.FocusConvex
 
-    -- local a = cur and 150 or ( curBone and 50 or 15 ) * ( curC and 1 or 0.5 ) * dot01
+--     -- local a = cur and 150 or ( curBone and 50 or 15 ) * ( curC and 1 or 0.5 ) * dot01
 
-    local a = 10
+--     local a = 10
 
-    if a < 1 then return end
+--     if a < 1 then return end
 
-    local ang = polygon.matW:GetAngles()
-    ang:RotateAroundAxis( ang:Forward(), 90 )   
-    ang:RotateAroundAxis( ang:Right(), 90 ) 
+--     local ang = polygon.matW:GetAngles()
+--     ang:RotateAroundAxis( ang:Forward(), 90 )   
+--     ang:RotateAroundAxis( ang:Right(), 90 ) 
 
-    local pos = polygon.matW:GetTranslation()
+--     local pos = polygon.matW:GetTranslation()
 
-    local dot = polygon.matW:GetForward():Dot(vector_up)
-    local dot2 = dot*0.5+0.5
+--     local dot = polygon.matW:GetForward():Dot(vector_up)
+--     local dot2 = dot*0.5+0.5
 
-    -- arrow(pos, polygon.matW:GetRight())
+--     -- arrow(pos, polygon.matW:GetRight())
 
-    local col = HSVToColor( 
-        Lerp( dot2, -50, HSVcolors_fgcorange.h ) + ( curC and 0 or 175 ), 
-        -- HSVcolors_fgcorange.h + ( polygon.convex == FocusEntity.FocusConvex and 0 or 175 ) , 
-        ( 0.7 - 0.3*dot2 ) * (cur and 0.5 or 1) * (curC and 1 or 0.5), 
-        cur and 1 or 0.5 + 0.5*dot2
-    )
-    col.a = a
+--     local col = HSVToColor( 
+--         Lerp( dot2, -50, HSVcolors_fgcorange.h ) + ( curC and 0 or 175 ), 
+--         -- HSVcolors_fgcorange.h + ( polygon.convex == FocusEntity.FocusConvex and 0 or 175 ) , 
+--         ( 0.7 - 0.3*dot2 ) * (cur and 0.5 or 1) * (curC and 1 or 0.5), 
+--         cur and 1 or 0.5 + 0.5*dot2
+--     )
+--     col.a = a
 
-    local numv = #polygon.vertices
+--     local numv = #polygon.vertices
 
-    cam.IgnoreZ( cBool("drawfacesignorez") )
-    cam.Start3D2D(pos, ang, 1)
+--     cam.IgnoreZ( cBool("drawfacesignorez") )
+--     cam.Start3D2D(pos, ang, 1)
 
-        surface.SetDrawColor( col:Unpack() )
-        draw.NoTexture()
-        surface.DrawPoly( polygon.vertices )
+--         surface.SetDrawColor( col:Unpack() )
+--         draw.NoTexture()
+--         surface.DrawPoly( polygon.vertices )
 
-    cam.End3D2D()
-    cam.IgnoreZ( false )
+--     cam.End3D2D()
+--     cam.IgnoreZ( false )
 
-    local dropshadowlength = cNum("dropshadowlength")
+--     local dropshadowlength = cNum("dropshadowlength")
 
-    local lineopacity = 255 * cNum("lineopacity")
+--     local lineopacity = 255 * cNum("lineopacity")
 
-    local dropshadowopacity = lineopacity * cNum("dropshadowopacity")
+--     local dropshadowopacity = lineopacity * cNum("dropshadowopacity")
 
-    surface.SetDrawColor( 0, 0, 0, dropshadowopacity )
+--     surface.SetDrawColor( 0, 0, 0, dropshadowopacity )
 
-    pos = pos - fp.matW:GetForward() * dropshadowlength
-    for i = 1, 2 do 
+--     pos = pos - fp.matW:GetForward() * dropshadowlength
+--     for i = 1, 2 do 
 
-        cam.IgnoreZ( cBool("drawfacesignorez") )
-        cam.Start3D2D(pos, ang, 1)
+--         cam.IgnoreZ( cBool("drawfacesignorez") )
+--         cam.Start3D2D(pos, ang, 1)
 
-        for i = 1, #polygon.vertices do
+--         for i = 1, #polygon.vertices do
 
-            local v1, v2 = polygon.vertices[i], polygon.vertices[i%numv+1]
+--             local v1, v2 = polygon.vertices[i], polygon.vertices[i%numv+1]
 
-            local n = -0.5
+--             local n = -0.5
 
-            surface.DrawLine( v1.x+n, v1.y+n, v2.x+n, v2.y+n )
+--             surface.DrawLine( v1.x+n, v1.y+n, v2.x+n, v2.y+n )
 
-        end
+--         end
 
-        surface.SetDrawColor( 255, 255, 255, lineopacity )
+--         surface.SetDrawColor( 255, 255, 255, lineopacity )
 
-        cam.End3D2D()
-        cam.IgnoreZ( false )
+--         cam.End3D2D()
+--         cam.IgnoreZ( false )
 
-        pos = pos + fp.matW:GetForward() * dropshadowlength
+--         pos = pos + fp.matW:GetForward() * dropshadowlength
 
-    end
+--     end
 
-end
+-- end
 
 -- function FocusEntity.DebugCoplaneRendering( fullcoplane, detN ) -- { num convexid = { num tri, num tri, ... } ... }
 
@@ -2054,6 +2410,45 @@ function FocusEntity.RefreshTrace()
 
     local tr = LocalPlayer():GetEyeTrace()
 
+    if cBool("hitclientsideobjects") then
+
+        tr = util.TraceLine( {
+            start  = LocalPlayer():GetShootPos(),
+            endpos = LocalPlayer():GetShootPos() + LocalPlayer():GetAimVector() * 10000,
+            filter = function( ent ) return !(ent == LocalPlayer() or ent:EntIndex() == -1 ) end,
+            mask = MASK_ALL,
+            hitclientonly = true
+        } )
+
+    end
+
+    -- print("tr:",tr.Entity)
+
+    if type(tr) != "table" then return end
+
+    if type(FocusEntity.tr) == "table" then
+
+        -- print(
+        --     FocusEntity.Locked,
+        --     IsValid(FocusEntity.tr.Entity),
+        --     FocusEntity.tr,
+        --     (FocusEntity.Locked and IsValid(FocusEntity)), 
+        --     tr.Entity,
+        --     tr.Entity == FocusEntity.tr.Entity
+        --     -- tr.Entity == FocusEntity.tr.Entity,
+        --     -- (FocusEntity.Locked and IsValid(FocusEntity)) and tr.Entity == FocusEntity.tr.Entity
+
+        -- )
+
+        -- print(FocusEntity.Locked , IsValid(FocusEntity.tr.Entity) , (tr.Entity == FocusEntity.tr.Entity))
+
+        if FocusEntity.Locked and IsValid(FocusEntity.tr.Entity) then 
+            return FocusEntity.tr.Entity 
+        end
+    end
+
+    -- FocusEntity.SetEntity(tr.Entity)
+
     FocusEntity.tr = tr
 
     return FocusEntity.tr.Entity
@@ -2074,9 +2469,11 @@ end
 
 function FocusEntity.PrepFrame()
 
+    FocusEntity.RefreshTrace()
+
     if !FocusEntity.Locked then
 
-        if FocusEntity.Entity != FocusEntity.RefreshTrace() then return false end -- prevents that tiny snapping artifact when switching ents
+        if FocusEntity.Entity != FocusEntity.tr.Entity then return false end -- prevents that tiny snapping artifact when switching ents
 
     end
 
@@ -2175,6 +2572,8 @@ local function puckline(v1, v2, r,g,b,a, thickness, shadow)
 
     end
 
+    if r+g+b == 255*3 then a = a * cNum("lineopacity") end 
+
     local drop = 0
 
     if shadow then
@@ -2232,12 +2631,14 @@ local function mat( path )
 
 end
 
-local function pucksprite( v, sprite, size, r,g,b,a, shadow )
+local function pucksprite( v, sprite, size, focal, r,g,b,a, shadow )
+
+    focal = ( focal and cBool("snapanimation") ) or false
 
     sprite = sprite or "bullet_error"
     sprite = "icon16/"..sprite..".png"
     size = size or (ScrW()*1/60)
-    shadow = shadow or true
+    shadow = shadow or false
     r,g,b,a = r or 255,g or 255,b or 255,a or 255
 
     -- cam.Start3D()
@@ -2246,6 +2647,9 @@ local function pucksprite( v, sprite, size, r,g,b,a, shadow )
     -- cam.End3D()
 
     local tsc = v:ToScreen()
+    tsc.x, tsc.y = tsc.x+1, tsc.y+0.5
+
+    local x, y = tsc.x, tsc.y
 
     -- if FocusEntity.Locked then
     --     tsc.x = ScrW()/2
@@ -2262,28 +2666,53 @@ local function pucksprite( v, sprite, size, r,g,b,a, shadow )
     local tmax = 0.2
     local t = math.max(ts-CurTime()+tmax, 0)*(1/tmax)
 
+    local ringscale = 4 * math.sin( (1-t)*3 )
+
+    local sc = math.min(t*100, ringscale)
+
+    if cBool("snapanimationrumble") and focal then
+        x, y = x + math.random(-sc,sc), y + math.random(-sc,sc)
+    end
+
     local rad = size/8 * (1 + t*8)
 
     local vez = math.floor(rad) + 2
 
-    for i = 1, vez do
+    local sO = a/2 -- shadow opacity
+    local sS = 0.25 -- shadow saturation
 
-        local rx = rad * math.cos(i/vez * math.pi * 2)
-        local ry = rad * math.sin(i/vez * math.pi * 2)
+    if shadow then
 
-        surface.SetDrawColor( r*0.25,g*0.25,b*0.25,a/2 )
-        surface.DrawTexturedRect( tsc.x - size/2 + rx, tsc.y - size/2 + ry, size, size )
+        local rx, ry = 0, 0
+        local k = math.pi * 2/vez 
+
+        for i = 1, vez do
+
+            if focal then
+
+                rx = rad * math.cos(i*k)
+                ry = rad * math.sin(i*k)
+
+            end
+
+            surface.SetDrawColor( r*sS,g*sS,b*sS,sO )
+            surface.DrawTexturedRect( x - size/2 + rx, y - size/2 + ry, size, size )
+
+        end
 
     end
 
     surface.SetDrawColor( r,g,b,a )
-    surface.DrawTexturedRect( tsc.x - size/2, tsc.y - size/2, size, size )
+    surface.DrawTexturedRect( x - size/2, y - size/2, size, size )
 
-    local ringscale = 4 * math.sin( (1-t)*3 )
+    if focal then
 
-    surface.SetMaterial( mat("effects/select_ring") )
-    surface.SetDrawColor( 255,255,255,255*t )
-    surface.DrawTexturedRect( tsc.x - size*ringscale/2, tsc.y - size*ringscale/2, size*ringscale, size*ringscale )
+        surface.SetMaterial( mat("effects/select_ring") )
+        local r,g,b,a = PAL.selectionanimationring()
+        surface.SetDrawColor( r,g,b,a*t )
+        surface.DrawTexturedRect( tsc.x - size*ringscale/2, tsc.y - size*ringscale/2, size*ringscale, size*ringscale )
+
+    end
 
 end
 
@@ -2410,6 +2839,9 @@ local function DrawWorldSpaceAABB(pb, r,g,b,a, physical)
 end
 
 local function SmartSnapianBoneAABB(pb, r,g,b,a)
+
+    if !cBool("drawworldspaceobb") then return end
+    if !cBool("dwsobb_anyweapon") and !ISLOCKABLE then return end
 
     local Wmat = FocusEntity.WorldMatrices[pb]
 
@@ -2630,8 +3062,21 @@ local function CreateGrid(FP, typ)
 
     local numv = #FP.vertices3D
 
-    -- local cen = FP.centroid
-    local cen = FP.mcPos
+    local cen = FP.centroid
+    -- local cen = FP.mcPos
+
+    if cBool("centroidwhenoutermc") then
+        if FP.mcWithin then cen = FP.mcPos else cen = FP.centroid end
+    else
+        local p = cStr("gridorigin")
+        cen = FP[p]
+        if type(cen) != "Vector" then 
+            local fallback = "centroid"
+            print("invalid grid origin position: \""..p.."\", falling back to "..fallback..".")
+            cen = FP.mcPos
+            convars.gridorigin:SetString(fallback)
+        end
+    end
 
     FocusEntity.GridCenter = cen
 
@@ -2643,6 +3088,9 @@ local function CreateGrid(FP, typ)
 
     local closest
     local closestDist = math.huge
+
+    local lr,lg,lb,la = PAL.grid()
+    local Or,Og,Ob,Oa = PAL.gridoutline()
 
     for n1=1, numv do -- outline of poly
 
@@ -2676,7 +3124,7 @@ local function CreateGrid(FP, typ)
         --     1
         -- )
 
-        addline( {v1, v2} )
+        addline( {v1, v2, Or,Og,Ob,Oa} )
 
     end
 
@@ -2782,7 +3230,7 @@ local function CreateGrid(FP, typ)
 
                     -- addline( {v1 - N*l*3, v2 - N*l*3, nil,nil,nil,255*alpha,((l == 1) and 2 or 1)} )
                     -- addline( {v1 + N*i, v2 + N*i, nil,nil,nil,255*alpha,((l == 1) and 2 or 1)} )
-                    addline( {v1, v2, nil,nil,nil,255*alpha,((l == 1) and 2 or 1)} )
+                    addline( {v1, v2, lr,lg,lb,la*alpha,((l == 1) and 2 or 1)} )
 
                 end
 
@@ -2838,7 +3286,7 @@ local function CreateGrid(FP, typ)
 
                 local a2 = alpha * ( ( l==2 or (l-1)%4==0 ) and 1 or 0.25 ) 
 
-                addline( {v1, v2, nil,nil,nil,255*a2,thickness} )
+                addline( {v1, v2, lr,lg,lb,la*a2,thickness} )
 
                 if sides % 8 == 0 then checkpoint() end
                 
@@ -2874,11 +3322,9 @@ local function CreateGrid(FP, typ)
             for i0 = 0, 2*(maxdist-1)/dI, 1 do
 
                 i = i + i0*(-1)^i0
-                -- print(i, i0*(-1)^i0)
+                -- print(i, i0*(-1)^i0)\
 
-                local thickness = (i == 0) and 2 or 1
-
-                print(i)
+                -- print(i)
 
                 local O = org+i*dir_ptr*dI
 
@@ -2904,7 +3350,11 @@ local function CreateGrid(FP, typ)
                 alpha = i==0 and 1 or math.Clamp( i0*dI/maxdist , 0.1, 1)
                 alpha = alpha * ( (i%4 != 0) and 0.25 or 1)
 
-                addline( {v1, v2, nil,nil,nil,255 * alpha, thickness } )
+                local thickness = (i == 0) and 2 or 1
+
+                print(lr,lg,lb,la)
+
+                addline( {v1, v2, lr,lg,lb,la * alpha, thickness } )
 
                 FP.gridData[typ].rayends[keyForPos(v1)] = v1
                 FP.gridData[typ].rayends[keyForPos(v2)] = v2
@@ -3264,9 +3714,13 @@ hook.Add("HUDPaint", PS_.."2ddraw", function()
 
         local curbone = bone_ind == pb
 
-        DrawWorldSpaceAABB(bone_ind,255,150,150,50,true)
-        DrawWorldSpaceAABB(bone_ind,255,0,0,50)
-        SmartSnapianBoneAABB(bone_ind, 0,0,255,curbone and 200 or 20)
+        local r1,g1,b1,a1 = PAL.physicalaabb()
+        local r2,g2,b2,a2 = PAL.fullaabb()
+        local r3,g3,b3,a3 = PAL.obb()
+
+        DrawWorldSpaceAABB(bone_ind,r1,g1,b1,a1,true)
+        DrawWorldSpaceAABB(bone_ind,r2,g2,b2,a2)
+        SmartSnapianBoneAABB(bone_ind, r3,g3,b3,a3 * ( curbone and 0.75 or 0.1 ) )
 
         if !curbone then continue end
 
@@ -3280,7 +3734,7 @@ hook.Add("HUDPaint", PS_.."2ddraw", function()
 
         for convex_ind, C in pairs(B.PerConvex) do
 
-            local curconvex = FocusConvex() == convex_ind
+            local curconvex = ( FocusConvex() == convex_ind ) and ( cBool("highlightconvexes") or ISLOCKABLE )
             -- if !curconvex then
 
             -- if cBool("masscenterproj") then
@@ -3324,7 +3778,14 @@ hook.Add("HUDPaint", PS_.."2ddraw", function()
 
                 end
 
-                if facingct == 0 then continue end
+                local alpha = 1
+
+                if facingct == 0 then 
+                    if cBool("backfaceculling") then continue
+                    else
+                        alpha = cNum("backfaceopacity")
+                    end
+                end
 
                 if curpoly and ISLOCKABLE then continue end
 
@@ -3332,7 +3793,7 @@ hook.Add("HUDPaint", PS_.."2ddraw", function()
 
                 -- local alpha = 255 * cNum("lineopacity") * ( curpoly and 1 or ( monoconvex and 0.1 or 0.5 ) ) * ( curconvex and 1 or 0.5 )
 
-                local alpha = 255 * cNum("lineopacity") * ( monoconvex and 0.1 or 0.5 ) * ( curconvex and 1 or 0.5 )
+                alpha = alpha * 255 * cNum("lineopacity") * ( monoconvex and 0.1 or 0.5 ) * ( curconvex and 1 or 0.5 )
 
                 -- if curpoly then continue end
 
@@ -3352,31 +3813,64 @@ hook.Add("HUDPaint", PS_.."2ddraw", function()
 
         if !curbone then continue end
 
-        if ISLOCKABLE then HandleGrid(FP) end
-
         FoPt = FocusEntity.Grid.focalpoint
 
         if type(FoPt) != "table" then return end
 
         local posW = matW * FoPt.pos
 
-        if (cBool("fponlywhenlockable") and ISLOCKABLE) or !cBool("fponlywhenlockable") then
+        if ISLOCKABLE then 
 
-            pucksprite( posW, cIcon(FoPt.type, FocusEntity.Locked and "selected"), 16 )
+            HandleGrid(FP)
+
+            if cBool("indicatemcproj") then
+
+                if FP.mcWithin then
+
+                    local r,g,b,a = PAL.masscenterindicator()
+
+                    -- pucksprite( matW * FP.mcPos, cIcon("masscenter"), 16, false, 100, 100, 255, 150, false )
+                    pucksprite( matW * FP.mcPos, cIcon("masscenter"), 16, false, r,g,b,a, false )
+                    -- print(matW * FP.mcPos, cIcon("masscenter"), 16, false, PAL.masscenterindicator(), false)
+
+                else
+
+                    local r,g,b,a = PAL.nomasscenterindicator()
+
+                    -- pucksprite( matW * FP.mcDisp, cIcon("masscenteroff"), 16, false, 255, 100, 100, 100, false )
+                    pucksprite( matW * FP.mcDisp, cIcon("masscenteroff"), 16, false, r,g,b,a, false )
+
+                end
+
+            end
+
+            if cBool("indicatecentroid") and !FP.mcct then
+
+                local r,g,b,a = PAL.centroidindicator()
+
+                -- pucksprite( matW * FP.centroid, cIcon("centroid"), 16, false, 0, 0, 255, 120, false )
+                pucksprite( matW * FP.centroid, cIcon("centroid"), 16, false, r,g,b,a, false )
+
+            end
+
+            pucksprite( posW, cIcon(FoPt.type, FocusEntity.Locked and "selected"), 16, true )
 
         end
 
-        local tr = LocalPlayer():GetEyeTrace()
+        -- local tr = LocalPlayer():GetEyeTrace()
+        local tr = FocusEntity.tr
         local hp = tr.HitPos
+
+        -- print(hp)
 
         cam.Start3D()
 
-            if ISLOCKABLE then arrowAB( hp, posW, 0.5, 1, Color(0,0,255,50) ) end
+            if ISLOCKABLE and cBool("drawsnaparrow") and !FocusEntity.Locked then arrowAB( hp, posW, 0.5, 1, Color(0,0,255,50) ) end
             -- print((hp-posW):Length())
 
             local col = (FocusEntity == tr.Entity) and Color(0, 255, 0, 50) or Color(255, 0, 0, 100)
 
-            if cBool("drawhitnormals") then
+            if cBool("drawhitnormal") then
 
                 arrow( hp, tr.HitNormal, 16, col, 1, true )
 
@@ -3513,6 +4007,8 @@ hook.Add("CreateMove", PS_.."whippersnapper2", function(user)
     if (type(FocusEntity.Grid) != "table") or (type(FocusEntity.Grid.focalpoint) != "table") then return end
 
     if !FocusEntity.Locked then return end
+
+    if !ISLOCKABLE then FocusEntity.Locked = false return end
 
     user:SetViewAngles( ( FocusEntity.WorldMatrix * FocusEntity.Grid.focalpoint.pos + (FocusEntity.tr.HitNormal * DIST_EPSILON * 1 ) - EyePos() ):Angle() )
 
