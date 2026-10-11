@@ -80,7 +80,7 @@ local function lobotostr(str)
 end
 
 for k, v in pairs(colordefs) do
-    print("SET ",v[1], "TO",lobotostr(v[1]))
+    -- print("SET ",v[1], "TO",lobotostr(v[1]))
     lobodict[v[1]] = lobotostr(v[1])
 end
 
@@ -3312,6 +3312,8 @@ local function CreateGrid(FP, typ)
 
         local alpha = 255
 
+        local outerbound = 2*(maxdist-1)/dI
+
         for _ = 1, 2 do 
 
             local i = 0
@@ -3319,7 +3321,7 @@ local function CreateGrid(FP, typ)
             local hashit = false
             local nohits = true
 
-            for i0 = 0, 2*(maxdist-1)/dI, 1 do
+            for i0 = 0, outerbound, 1 do
 
                 i = i + i0*(-1)^i0
                 -- print(i, i0*(-1)^i0)\
@@ -3352,7 +3354,11 @@ local function CreateGrid(FP, typ)
 
                 local thickness = (i == 0) and 2 or 1
 
-                print(lr,lg,lb,la)
+                -- print(lr,lg,lb,la)
+
+                if _ == 2 then
+                    print(i,v1,v2, "      ",O)
+                end
 
                 addline( {v1, v2, lr,lg,lb,la * alpha, thickness } )
 
@@ -3413,7 +3419,7 @@ local function CreateGrid(FP, typ)
 
             dir_ray = u
             dir_ptr = v
-            org = cen -(u)*maxdist*dI
+            org = cen -(u)*outerbound*dI
 
         end
 
